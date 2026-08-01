@@ -38,20 +38,27 @@ async def catch_exception_middleware(request:Request,call_next):
 @app.post("/upload_pdfs/")
 async def upload_pdfs(files:List[UploadFile]=File(...)):
     try:
-        logger.info(f"recieved {len(files)} files")
-        load_vectorstore(files)
+        # Validate empty upload
+        valid_files = [f for f in files if f.filename and f.filename.strip()]
+        if not valid_files:
+            return JSONResponse(status_code=400, content={"error": "No valid PDF files provided."})
+
+        logger.info(f"recieved {len(valid_files)} files")
+        load_vectorstore(valid_files)
         logger.info("documents added to chroma")
         return {"message":"Files processed and vectorstore updated"}
     except Exception as e:
         logger.exception("Error during pdf upload")
-        return JSONResponse(status_code=500,content={"error":str(e)})
-
-
+        return JSONResponse(status_code=500,content={"error": f"Failed to upload PDFs: {str(e)}"})
 
 
 @app.post("/ask/")
 async def ask_question(question: str = Form(...), chat_history: str = Form(default="")):
     try:
+        # Validate empty question
+        if not question or not question.strip():
+            return JSONResponse(status_code=400, content={"error": "Question cannot be empty."})
+
         logger.info(f"user query: {question}")
 
         from langchain_huggingface import HuggingFaceEmbeddings
@@ -62,6 +69,9 @@ async def ask_question(question: str = Form(...), chat_history: str = Form(defau
 
         # 1. Chroma + Embedding setup
         chroma_db_path = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+        if not os.path.exists(chroma_db_path):
+            return JSONResponse(status_code=400, content={"error": "Knowledge base is empty. Please upload a PDF first."})
+
         embed_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         
         vectorstore = Chroma(
@@ -81,7 +91,7 @@ async def ask_question(question: str = Form(...), chat_history: str = Form(defau
 
     except Exception as e:
         logger.exception("Error processing question")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return JSONResponse(status_code=500, content={"error": f"Failed to generate answer: {str(e)}"})
 
 
 @app.get("/documents/")

@@ -53,9 +53,12 @@ export default function Chat({ session, onAddMessage }) {
     } catch (error) {
       console.error(error);
       const errTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const serverError = error.response?.data?.error;
+      const displayMessage = serverError || 'Sorry, I encountered an error while processing your request.';
+
       onAddMessage({
         role: 'assistant',
-        content: 'Sorry, I encountered an error while processing your request.',
+        content: displayMessage,
         isError: true,
         timestamp: errTimestamp,
       });

@@ -55,11 +55,20 @@ export default function Upload({ onUploadSuccess }) {
   }, [fetchDocuments]);
 
   const handleFileChange = (e) => {
-    setFiles(Array.from(e.target.files));
+    const selected = Array.from(e.target.files);
+    const validPdfs = selected.filter(f => f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf');
+    
+    if (validPdfs.length !== selected.length) {
+      showToast("Only PDF files are allowed.", "error");
+    }
+    setFiles(validPdfs);
   };
 
   const handleUpload = async () => {
-    if (files.length === 0) return;
+    if (files.length === 0) {
+      showToast("Please select at least one PDF file to upload.", "error");
+      return;
+    }
     setIsUploading(true);
     try {
       await uploadPdfs(files);
