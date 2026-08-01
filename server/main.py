@@ -23,6 +23,10 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+from fastapi.staticfiles import StaticFiles
+os.makedirs("./uploaded_pdfs", exist_ok=True)
+app.mount("/static", StaticFiles(directory="./uploaded_pdfs"), name="static")
+
 @app.middleware("http")
 async def catch_exception_middleware(request:Request,call_next):
     try:

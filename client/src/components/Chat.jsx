@@ -202,30 +202,52 @@ export default function Chat({ session, onAddMessage }) {
 
               {/* Citations */}
               {msg.sources?.length > 0 && (
-                <div className="mt-2 w-full text-xs text-slate-600 bg-white border border-slate-200 px-4 py-3 rounded-xl shadow-sm">
-                  <span className="font-semibold flex items-center gap-1.5 mb-2 text-slate-700">
-                    <FileText className="w-3.5 h-3.5" /> Sources:
+                <div className="mt-2 w-full">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <FileText className="w-3 h-3" /> Sources
                   </span>
-                  <ul className="space-y-1.5">
-                    {msg.sources.map((src, sIdx) => {
-                      const filename = typeof src === 'object' ? src.filename : src.split(/[\\/]/).pop();
-                      const parts = typeof src === 'object' && src.chunk_index ? src.chunk_index.split(', ') : [];
-                      return (
-                        <li key={sIdx} className="flex flex-col gap-1 mt-3 first:mt-1">
-                          <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0" />
-                            <span className="truncate font-medium text-slate-700">{filename}</span>
-                          </div>
-                          {parts.map((part, pIdx) => (
-                            <div key={pIdx} className="flex items-center gap-2 ml-4">
-                              <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
-                              <span className="text-slate-500">{part}</span>
-                            </div>
-                          ))}
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      // Deduplicate sources by filename + page combination
+                      const seen = new Set();
+                      const uniqueSources = [];
+                      
+                      msg.sources.forEach((src) => {
+                        const filename = typeof src === 'object' ? src.filename : src;
+                        const chunkStr = typeof src === 'object' && src.chunk_index ? src.chunk_index : '';
+                        const pageMatch = chunkStr.match(/Page\s+(\d+)/i);
+                        const pageNum = pageMatch ? pageMatch[1] : '1';
+                        
+                        const key = `${filename}__${pageNum}`;
+                        if (!seen.has(key)) {
+                          seen.add(key);
+                          uniqueSources.push({ filename, pageNum });
+                        }
+                      });
+
+                      const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
+                      return uniqueSources.map((src, sIdx) => {
+                        const url = `${API_BASE}/static/${encodeURIComponent(src.filename)}#page=${src.pageNum}`;
+                        return (
+                          <a 
+                            key={sIdx}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 shadow-sm transition-all group max-w-full"
+                            title={`View ${src.filename} (Page ${src.pageNum})`}
+                          >
+                            <FileText className="w-3.5 h-3.5 text-brand-500 group-hover:text-brand-600 shrink-0" />
+                            <span className="truncate max-w-[150px] sm:max-w-[200px]">{src.filename}</span>
+                            <span className="shrink-0 bg-slate-100 text-slate-500 group-hover:bg-brand-100 group-hover:text-brand-700 px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors">
+                              Pg {src.pageNum}
+                            </span>
+                          </a>
+                        );
+                      });
+                    })()}
+                  </div>
                 </div>
               )}
             </div>
