@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, User, Bot, Loader2, FileText, Download } from 'lucide-react';
+import { Send, User, Bot, Loader2, FileText, Download, Copy, Check } from 'lucide-react';
 import { askQuestion } from '../services/api';
 import jsPDF from 'jspdf';
 
@@ -7,7 +7,14 @@ export default function Chat({ session, onAddMessage }) {
   const messages = session?.messages || [];
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState(null);
   const messagesEndRef = useRef(null);
+
+  const handleCopy = (text, idx) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(idx);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -199,8 +206,26 @@ export default function Chat({ session, onAddMessage }) {
                   ? 'bg-brand-600 text-white rounded-tr-sm'
                   : msg.isError
                     ? 'bg-rose-50 border border-rose-200 text-rose-700 rounded-tl-sm'
-                    : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm'}`}>
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                    : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm group'}`}>
+                <div className="flex flex-col gap-1">
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  
+                  {msg.role === 'assistant' && !msg.isError && (
+                    <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity mt-1 -mb-1">
+                      <button
+                        onClick={() => handleCopy(msg.content, idx)}
+                        className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-brand-600 font-medium transition-colors"
+                        title="Copy response"
+                      >
+                        {copiedIndex === idx ? (
+                          <><Check className="w-3.5 h-3.5 text-emerald-500" /> <span className="text-emerald-500">Copied!</span></>
+                        ) : (
+                          <><Copy className="w-3.5 h-3.5" /> Copy</>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Citations */}
