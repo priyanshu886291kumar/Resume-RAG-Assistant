@@ -274,18 +274,27 @@ export default function Chat({ session, onAddMessage }) {
       {/* Input */}
       <div className="p-4 md:p-5 bg-white border-t border-slate-100">
         <form onSubmit={handleSubmit} className="relative flex items-center">
-          <input
-            type="text"
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask anything about the PDFs..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (input.trim() && !isLoading) {
+                  handleSubmit(e);
+                }
+              }
+            }}
+            placeholder="Ask anything about the PDFs... (Shift+Enter for new line)"
             disabled={isLoading}
-            className="w-full pl-5 pr-14 py-3.5 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 focus:bg-white transition-all disabled:opacity-60 text-[15px]"
+            rows={1}
+            style={{ minHeight: '52px', maxHeight: '120px' }}
+            className="w-full pl-5 pr-14 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 focus:bg-white transition-all disabled:opacity-60 text-[15px] resize-none overflow-y-auto leading-relaxed"
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="absolute right-2 p-2.5 bg-brand-600 text-white rounded-full hover:bg-brand-700 disabled:bg-slate-300 disabled:text-slate-500 transition-colors shadow-sm"
+            className="absolute bottom-2.5 right-2 p-2.5 bg-brand-600 text-white rounded-full hover:bg-brand-700 disabled:bg-slate-300 disabled:text-slate-500 transition-colors shadow-sm"
           >
             <Send className="w-4 h-4 ml-0.5" />
           </button>
