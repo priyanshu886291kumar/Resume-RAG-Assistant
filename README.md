@@ -8,8 +8,10 @@ A full-stack Retrieval-Augmented Generation (RAG) application that allows you to
 
 - **📄 Document Management:** Upload multiple PDFs, manage them via a sidebar, and delete them when no longer needed.
 - **💬 Conversational Memory:** The assistant remembers the context of the current chat, allowing for natural follow-up questions.
-- **📑 Source Citations:** Every answer includes exact citations linking back to the specific PDF and chunk that provided the information.
+- **📑 Interactive Source Citations:** Every answer includes exact, clickable pill citations that open the specific PDF and jump directly to the page that provided the information.
 - **✨ AI Summarization:** Generate a structured, markdown-formatted summary (Overview, Skills, Projects, Key Points) of your uploaded documents with a single click.
+- **🛡️ Robust Error Handling:** Complete frontend and backend validation for empty files, empty prompts, invalid file types, and empty databases.
+- **⏱️ Performance Telemetry:** Modular logging on the FastAPI backend to measure precise timings for Vector Ingestion, ChromaDB Retrieval, and LLM Generation.
 - **📂 Multiple Chat Sessions:** Create, rename, and switch between different chat sessions. Conversations persist locally.
 - **📥 PDF Export:** Download any chat session as a beautifully formatted PDF document.
 
