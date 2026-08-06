@@ -164,9 +164,9 @@ export default function Chat({ session, onAddMessage }) {
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2 truncate">
             <Bot className="w-5 h-5 text-brand-500 shrink-0" />
-            <span className="truncate">{session?.name || 'RagBot Assistant'}</span>
+            <span className="truncate">{session?.name || 'Disaster Management Assistant'}</span>
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">Ask questions based on the uploaded documents</p>
+          <p className="text-xs text-slate-500 mt-0.5">Ask questions from disaster management documents & SOPs</p>
         </div>
         <button
           onClick={handleDownloadPDF}
@@ -310,7 +310,7 @@ export default function Chat({ session, onAddMessage }) {
                 }
               }
             }}
-            placeholder="Ask anything about the PDFs... (Shift+Enter for new line)"
+            placeholder="Ask about disaster management procedures... (Shift+Enter for new line)"
             disabled={isLoading}
             rows={1}
             style={{ minHeight: '52px', maxHeight: '120px' }}

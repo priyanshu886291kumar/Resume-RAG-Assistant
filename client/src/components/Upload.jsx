@@ -1,7 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import { UploadCloud, CheckCircle, XCircle, Loader2, Trash2, FileText, RefreshCw, Sparkles } from 'lucide-react';
-import { uploadPdfs, listDocuments, deleteDocument, generateSummary } from '../services/api';
+import { UploadCloud, CheckCircle, XCircle, Loader2, Trash2, FileText, RefreshCw, Sparkles, File } from 'lucide-react';
+import { uploadDocs, listDocuments, deleteDocument, generateSummary } from '../services/api';
 import SummaryPanel from './SummaryPanel';
+
+// Supported file extensions (must match the backend)
+const SUPPORTED_EXTENSIONS = ['.pdf', '.md', '.csv', '.xlsx'];
+const SUPPORTED_MIME_TYPES = [
+  'application/pdf',
+  'text/markdown',
+  'text/csv',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+];
+
+/** Return a colour class and short label for each doc type. */
+function getDocTypeBadge(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  const map = {
+    pdf: { label: 'PDF', cls: 'bg-red-100 text-red-700' },
+    md: { label: 'MD', cls: 'bg-blue-100 text-blue-700' },
+    csv: { label: 'CSV', cls: 'bg-emerald-100 text-emerald-700' },
+    xlsx: { label: 'XLSX', cls: 'bg-amber-100 text-amber-700' },
+  };
+  return map[ext] || { label: ext.toUpperCase(), cls: 'bg-slate-100 text-slate-600' };
+}
 
 // ── Toast component ──────────────────────────────────────────────────────────
 function Toast({ toasts }) {
@@ -33,12 +54,12 @@ export default function Upload({ onUploadSuccess }) {
 
   // Summary state
   const [isSummarizing, setIsSummarizing] = useState(false);
-  const [summaryData, setSummaryData] = useState(null); // { summary, files }
+  const [summaryData, setSummaryData] = useState(null);
 
   const showToast = (message, type = 'success') => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
   };
 
   const fetchDocuments = useCallback(async () => {
@@ -50,30 +71,37 @@ export default function Upload({ onUploadSuccess }) {
     }
   }, []);
 
-  useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+  useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
 
   const handleFileChange = (e) => {
     const selected = Array.from(e.target.files);
-    const validPdfs = selected.filter(f => f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf');
-    
-    if (validPdfs.length !== selected.length) {
-      showToast("Only PDF files are allowed.", "error");
+    const valid = selected.filter((f) => {
+      const ext = '.' + f.name.split('.').pop().toLowerCase();
+      return SUPPORTED_EXTENSIONS.includes(ext) || SUPPORTED_MIME_TYPES.includes(f.type);
+    });
+
+    if (valid.length !== selected.length) {
+      showToast(
+        `Only PDF, Markdown, CSV, and Excel files are supported. ${selected.length - valid.length} file(s) skipped.`,
+        'error'
+      );
     }
-    setFiles(validPdfs);
+    setFiles(valid);
   };
 
   const handleUpload = async () => {
     if (files.length === 0) {
-      showToast("Please select at least one PDF file to upload.", "error");
+      showToast('Please select at least one supported file to upload.', 'error');
       return;
     }
     setIsUploading(true);
     try {
-      await uploadPdfs(files);
+      const result = await uploadDocs(files);
       setFiles([]);
-      showToast(`${files.length} file(s) uploaded successfully!`, 'success');
+      showToast(result.message || `${files.length} file(s) uploaded successfully!`, 'success');
+      if (result.rejected?.length > 0) {
+        showToast(`Skipped unsupported: ${result.rejected.join(', ')}`, 'error');
+      }
       await fetchDocuments();
       if (onUploadSuccess) onUploadSuccess();
     } catch (error) {
@@ -100,7 +128,7 @@ export default function Upload({ onUploadSuccess }) {
     setIsSummarizing(true);
     setSummaryData(null);
     try {
-      const data = await generateSummary(documents); // summarize all uploaded docs
+      const data = await generateSummary(documents);
       setSummaryData(data);
     } catch (error) {
       showToast(error.response?.data?.error || 'Failed to generate summary.', 'error');
@@ -126,7 +154,12 @@ export default function Upload({ onUploadSuccess }) {
         {/* Title */}
         <div>
           <h2 className="text-lg font-semibold text-slate-800">Knowledge Base</h2>
-          <p className="text-sm text-slate-500 mt-1">Upload PDFs to train the assistant.</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Upload documents to train the assistant.
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Supported: PDF, Markdown (.md), CSV, Excel (.xlsx)
+          </p>
         </div>
 
         {/* Drop Zone */}
@@ -134,7 +167,7 @@ export default function Upload({ onUploadSuccess }) {
           <input
             type="file"
             multiple
-            accept=".pdf"
+            accept=".pdf,.md,.csv,.xlsx"
             onChange={handleFileChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             disabled={isUploading}
@@ -142,12 +175,23 @@ export default function Upload({ onUploadSuccess }) {
           <UploadCloud className="w-10 h-10 text-slate-400 mb-3 group-hover:text-brand-500 transition-colors" />
           <span className="text-sm font-medium text-slate-600 text-center">
             {files.length > 0 ? (
-              <span className="text-brand-600 font-semibold">{files.length} file(s) selected</span>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-brand-600 font-semibold">{files.length} file(s) selected:</span>
+                <ul className="text-xs text-slate-500 max-h-24 overflow-y-auto w-full max-w-[220px]">
+                  {files.map(f => (
+                    <li key={f.name} className="truncate text-center" title={f.name}>
+                      {f.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : (
               <>
                 <span className="text-brand-600 font-semibold hover:underline">Click to upload</span> or drag and drop
                 <br />
-                <span className="text-xs font-normal text-slate-400 mt-1 block">PDFs only</span>
+                <span className="text-xs font-normal text-slate-400 mt-1 block">
+                  PDF · Markdown · CSV · Excel
+                </span>
               </>
             )}
           </span>
@@ -162,7 +206,7 @@ export default function Upload({ onUploadSuccess }) {
           {isUploading ? (
             <><Loader2 className="w-5 h-5 animate-spin" /> Uploading...</>
           ) : (
-            'Upload to Database'
+            'Upload to Knowledge Base'
           )}
         </button>
 
@@ -182,27 +226,33 @@ export default function Upload({ onUploadSuccess }) {
               </button>
             </div>
             <ul className="flex flex-col gap-2">
-              {documents.map((doc) => (
-                <li
-                  key={doc}
-                  className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
-                >
-                  <FileText className="w-4 h-4 text-brand-500 shrink-0" />
-                  <span className="flex-1 text-xs text-slate-700 truncate" title={doc}>
-                    {doc}
-                  </span>
-                  <button
-                    onClick={() => handleDelete(doc)}
-                    disabled={deletingFile === doc}
-                    title={`Delete ${doc}`}
-                    className="shrink-0 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-50 transition-colors"
+              {documents.map((doc) => {
+                const badge = getDocTypeBadge(doc);
+                return (
+                  <li
+                    key={doc}
+                    className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
                   >
-                    {deletingFile === doc
-                      ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : <Trash2 className="w-4 h-4" />}
-                  </button>
-                </li>
-              ))}
+                    <File className="w-4 h-4 text-brand-500 shrink-0" />
+                    <span className="flex-1 text-xs text-slate-700 truncate" title={doc}>
+                      {doc}
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badge.cls}`}>
+                      {badge.label}
+                    </span>
+                    <button
+                      onClick={() => handleDelete(doc)}
+                      disabled={deletingFile === doc}
+                      title={`Delete ${doc}`}
+                      className="shrink-0 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-50 transition-colors"
+                    >
+                      {deletingFile === doc
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
 
             {/* ── Generate Summary Button ── */}
