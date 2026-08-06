@@ -1,41 +1,52 @@
+"""
+llm.py — LLM configuration and prompt template for the
+          Disaster Management RAG Assistant.
+
+Uses ChatGroq (LLaMA 3.3 70B) as the generation backend.
+The prompt is strictly grounded — the LLM may ONLY answer from
+the provided context and must cite source documents and sections.
+"""
+
 from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Load Groq API key — get a free key at https://console.groq.com
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
     raise ValueError("Missing mandatory environment variable: GROQ_API_KEY")
 
-print("GROQ KEY:", GROQ_API_KEY[:12])
 
-def get_llm_chain(retriever, chat_history: str = ""):
-    # Using Groq's free LLaMA3 model — fast and no billing required
+def get_llm_chain(chat_history: str = ""):
+    """
+    Build and return the (llm, prompt) tuple used by query_handlers.py.
+
+    The retriever is handled separately in query_handlers so that we can
+    measure retrieval time and apply hallucination-protection thresholding
+    before the LLM is ever called.
+    """
     llm = ChatGroq(
         groq_api_key=GROQ_API_KEY,
-        model_name="llama-3.3-70b-versatile"
+        model_name="llama-3.3-70b-versatile",
     )
 
-    # chat_history is injected via partial_variables so RetrievalQA
-    # only sees "context" and "question" as required inputs
     prompt = PromptTemplate(
         input_variables=["context", "question"],
         partial_variables={"chat_history": chat_history},
         template="""
-You are an **AI Resume Assistant**, trained to help users understand documents and resumes.
+You are an **expert Disaster Management AI Assistant**, trained exclusively on
+official disaster management documents, SOPs, guidelines, and field reports.
 
-Your job is to provide clear, accurate, and helpful responses based **ONLY on the provided context**.
-You should also use the previous chat history to understand the context of the user's question if necessary.
+Your role is to provide accurate, actionable, and clearly sourced answers to
+questions about disaster preparedness, response, recovery, and mitigation.
 
 ---
-🕒 **Chat History**:
+🕒 **Conversation History** (for understanding follow-up questions only):
 {chat_history}
 
-🔍 **Context**:
+📄 **Retrieved Context from Disaster Management Documents**:
 {context}
 
 🙋 **User Question**:
@@ -43,19 +54,17 @@ You should also use the previous chat history to understand the context of the u
 
 ---
 
-💬 **Answer Rules**:
-- Answer ONLY from retrieved documents.
-- Never use your own knowledge or hallucinate information.
-- If the information is missing from the context, reply exactly: "I couldn't find this information in the uploaded documents."
-- Quote document facts accurately.
-- Mention sources after every answer.
+💬 **Strict Answer Rules**:
+1. Answer ONLY using information present in the retrieved context above.
+2. NEVER fabricate, invent, or infer facts not explicitly stated in the context.
+3. If the context does not contain enough information, respond EXACTLY:
+   "I couldn't find this information in the provided disaster management documents."
+4. Always cite your source at the end of your answer using this format:
+   📌 Source: [document name] | [Page / Section]
+5. If multiple sources are used, list each on a separate line.
+6. Be concise, professional, and actionable in your language.
+7. Use bullet points or numbered lists for procedural steps when appropriate.
 """
     )
 
-    return RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        chain_type_kwargs={"prompt": prompt},
-        return_source_documents=True
-    )
+    return llm, prompt
